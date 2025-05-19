@@ -5,7 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"liveflow/media/streamer/ingress"
+	"live-streaming-server/internal/logger"
+	"live-streaming-server/media/streamer/ingress"
 	"os"
 	"path/filepath"
 
@@ -17,8 +18,7 @@ import (
 	"github.com/yutopp/go-rtmp"
 	rtmpmsg "github.com/yutopp/go-rtmp/message"
 
-	"liveflow/log"
-	"liveflow/media/hub"
+	"live-streaming-server/media/hub"
 )
 
 type Handler struct {
@@ -61,18 +61,18 @@ func (h *Handler) OnServe(conn *rtmp.Conn) {
 }
 
 func (h *Handler) OnConnect(timestamp uint32, cmd *rtmpmsg.NetConnectionConnect) error {
-	log.Infof(context.Background(), "OnConnect: %#v", cmd)
+	logger.Infof(context.Background(), "OnConnect: %#v", cmd)
 	return nil
 }
 
 func (h *Handler) OnCreateStream(timestamp uint32, cmd *rtmpmsg.NetConnectionCreateStream) error {
-	log.Infof(context.Background(), "OnCreateStream: %#v", cmd)
+	logger.Infof(context.Background(), "OnCreateStream: %#v", cmd)
 	return nil
 }
 
 func (h *Handler) OnPublish(_ *rtmp.StreamContext, timestamp uint32, cmd *rtmpmsg.NetStreamPublish) error {
 	ctx := context.Background()
-	log.Infof(ctx, "OnPublish: %#v", cmd)
+	logger.Infof(ctx, "OnPublish: %#v", cmd)
 
 	// (example) Reject a connection when PublishingName is empty
 	if cmd.PublishingName == "" {
@@ -123,18 +123,18 @@ func (h *Handler) OnSetDataFrame(timestamp uint32, data *rtmpmsg.NetStreamSetDat
 
 	var script flvtag.ScriptData
 	if err := flvtag.DecodeScriptData(r, &script); err != nil {
-		log.Infof(context.Background(), "Failed to decode script data: Err = %+v", err)
+		logger.Infof(context.Background(), "Failed to decode script data: Err = %+v", err)
 		return nil // ignore
 	}
 
-	log.Infof(context.Background(), "SetDataFrame: Script = %#v", script)
+	logger.Infof(context.Background(), "SetDataFrame: Script = %#v", script)
 
 	if err := h.flvEnc.Encode(&flvtag.FlvTag{
 		TagType:   flvtag.TagTypeScriptData,
 		Timestamp: timestamp,
 		Data:      &script,
 	}); err != nil {
-		log.Infof(context.Background(), "Failed to write script data: Err = %+v", err)
+		logger.Infof(context.Background(), "Failed to write script data: Err = %+v", err)
 	}
 
 	return nil
@@ -145,7 +145,7 @@ func (h *Handler) OnAudio(timestamp uint32, payload io.Reader) error {
 	var buf bytes.Buffer
 	_, err := io.Copy(&buf, payload)
 	if err != nil {
-		log.Error(ctx, err, "failed to read audio")
+		logger.Error(ctx, err, "failed to read audio")
 		return err
 	}
 	var audio flvtag.AudioData
@@ -169,10 +169,10 @@ func (h *Handler) OnAudio(timestamp uint32, payload io.Reader) error {
 	}
 	switch audio.AACPacketType {
 	case flvtag.AACPacketTypeSequenceHeader:
-		//log.Infof(ctx, "AACAudio Sequence Header: %s", hex.Dump(flvBody.Bytes()))
+		//logger.Infof(ctx, "AACAudio Sequence Header: %s", hex.Dump(flvBody.Bytes()))
 		codecData, err := aacparser.NewCodecDataFromMPEG4AudioConfigBytes(flvBody.Bytes())
 		if err != nil {
-			log.Error(ctx, err, "failed to NewCodecDataFromMPEG4AudioConfigBytes")
+			logger.Error(ctx, err, "failed to NewCodecDataFromMPEG4AudioConfigBytes")
 			return err
 		}
 		h.MPEG4AudioConfig = &codecData.Config
@@ -196,7 +196,7 @@ func (h *Handler) OnVideo(timestamp uint32, payload io.Reader) error {
 	// Read the payload data into a buffer
 	payloadBuffer, err := h.readPayload(payload)
 	if err != nil {
-		log.Error(ctx, err, "Failed to read video payload")
+		logger.Error(ctx, err, "Failed to read video payload")
 		return err
 	}
 
@@ -255,7 +255,7 @@ func (h *Handler) processVideoData(ctx context.Context, timestamp uint32, videoD
 func (h *Handler) handleSequenceHeader(ctx context.Context, flvBodyBuffer *bytes.Buffer) error {
 	seqHeader, err := h264parser.NewCodecDataFromAVCDecoderConfRecord(flvBodyBuffer.Bytes())
 	if err != nil {
-		log.Error(ctx, err, "Failed to parse AVCDecoderConfigurationRecord")
+		logger.Error(ctx, err, "Failed to parse AVCDecoderConfigurationRecord")
 		return err
 	}
 
@@ -265,7 +265,7 @@ func (h *Handler) handleSequenceHeader(ctx context.Context, flvBodyBuffer *bytes
 	h.pps = append([]byte{}, seqHeader.PPS()...)
 	h.hasSPS = true
 
-	log.Info(ctx, "Received AVCPacketTypeSequenceHeader")
+	logger.Info(ctx, "Received AVCPacketTypeSequenceHeader")
 	return nil
 }
 
@@ -352,7 +352,7 @@ func (h *Handler) publishVideoData(timestamp uint32, compositionTime int32, vide
 }
 
 func (h *Handler) OnClose() {
-	log.Infof(context.Background(), "OnClose")
+	logger.Infof(context.Background(), "OnClose")
 
 	if h.flvFile != nil {
 		_ = h.flvFile.Close()

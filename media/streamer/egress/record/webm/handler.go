@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"liveflow/log"
-	"liveflow/media/hub"
-	"liveflow/media/streamer/egress/record"
-	"liveflow/media/streamer/fields"
-	"liveflow/media/streamer/processes"
+	"live-streaming-server/internal/logger"
+	"live-streaming-server/media/hub"
+	"live-streaming-server/media/streamer/egress/record"
+	"live-streaming-server/media/streamer/fields"
+	"live-streaming-server/media/streamer/processes"
 	"time"
 
 	"github.com/asticode/go-astiav"
@@ -63,17 +63,17 @@ func (w *WebM) Start(ctx context.Context, source hub.Source) error {
 	}
 	w.mediaSpecs = source.MediaSpecs()
 
-	ctx = log.WithFields(ctx, logrus.Fields{
+	ctx = logger.WithFields(ctx, logrus.Fields{
 		fields.StreamID:   source.StreamID(),
 		fields.SourceName: source.Name(),
 	})
-	log.Info(ctx, "start webm")
+	logger.Info(ctx, "start webm")
 	sub := w.hub.Subscribe(source.StreamID())
 	go func() {
 		// Initialize splitting logic
 		err := w.createNewMuxer(ctx, int(audioClockRate))
 		if err != nil {
-			log.Error(ctx, err, "failed to create webm muxer")
+			logger.Error(ctx, err, "failed to create webm muxer")
 			return
 		}
 
@@ -124,7 +124,7 @@ func (w *WebM) closeMuxer(ctx context.Context) {
 		fileName := fmt.Sprintf("videos/%s_%s.mkv", w.streamID, timestamp)
 		outputFile, err := record.CreateFileInDir(fileName)
 		if err != nil {
-			log.Error(ctx, err, "failed to create output file")
+			logger.Error(ctx, err, "failed to create output file")
 			return
 		}
 		defer outputFile.Close()
@@ -132,7 +132,7 @@ func (w *WebM) closeMuxer(ctx context.Context) {
 		// Finalize muxer with output file
 		err = w.webmMuxer.Finalize(ctx, outputFile)
 		if err != nil {
-			log.Error(ctx, err, "failed to finalize muxer")
+			logger.Error(ctx, err, "failed to finalize muxer")
 		}
 		w.webmMuxer = nil
 	}
@@ -163,7 +163,7 @@ func (w *WebM) onVideo(ctx context.Context, data *hub.H264Video) {
 	if w.splitPending && keyFrame {
 		err := w.splitMuxer(ctx)
 		if err != nil {
-			log.Error(ctx, err, "failed to split webm file")
+			logger.Error(ctx, err, "failed to split webm file")
 			return
 		}
 		w.lastSplitTime = data.RawDTS()
@@ -172,7 +172,7 @@ func (w *WebM) onVideo(ctx context.Context, data *hub.H264Video) {
 
 	err := w.webmMuxer.WriteVideo(data.Data, keyFrame, uint64(data.RawPTS()-w.lastSplitTime), uint64(data.RawDTS()-w.lastSplitTime))
 	if err != nil {
-		log.Error(ctx, err, "failed to write video")
+		logger.Error(ctx, err, "failed to write video")
 	}
 }
 
@@ -180,17 +180,17 @@ func (w *WebM) onAudio(ctx context.Context, data *hub.OPUSAudio) {
 	fmt.Println("dts: ", data.RawDTS())
 	err := w.webmMuxer.WriteAudio(data.Data, false, uint64(data.RawPTS()-w.lastSplitTime), uint64(data.RawDTS()-w.lastSplitTime))
 	if err != nil {
-		log.Error(ctx, err, "failed to write audio")
+		logger.Error(ctx, err, "failed to write audio")
 	}
 }
 
 func (w *WebM) onAACAudio(ctx context.Context, aac *hub.AACAudio) {
 	if len(aac.Data) == 0 {
-		log.Warn(ctx, "no data")
+		logger.Warn(ctx, "no data")
 		return
 	}
 	if aac.MPEG4AudioConfig == nil {
-		log.Warn(ctx, "no config")
+		logger.Warn(ctx, "no config")
 		return
 	}
 	const (

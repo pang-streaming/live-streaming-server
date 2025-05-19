@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"liveflow/media/streamer/processes"
+	"live-streaming-server/internal/logger"
+	"live-streaming-server/media/streamer/processes"
 	"time"
 
 	"github.com/asticode/go-astiav"
@@ -14,10 +15,9 @@ import (
 	"github.com/deepch/vdk/codec/h264parser"
 	"github.com/sirupsen/logrus"
 
-	"liveflow/log"
-	"liveflow/media/hlshub"
-	"liveflow/media/hub"
-	"liveflow/media/streamer/fields"
+	"live-streaming-server/media/hlshub"
+	"live-streaming-server/media/hub"
+	"live-streaming-server/media/streamer/fields"
 )
 
 var (
@@ -65,12 +65,12 @@ func (h *HLS) Start(ctx context.Context, source hub.Source) error {
 	if !hub.HasCodecType(source.MediaSpecs(), hub.CodecTypeH264) {
 		return ErrUnsupportedCodec
 	}
-	ctx = log.WithFields(ctx, logrus.Fields{
+	ctx = logger.WithFields(ctx, logrus.Fields{
 		fields.StreamID:   source.StreamID(),
 		fields.SourceName: source.Name(),
 	})
-	log.Info(ctx, "start hls")
-	log.Info(ctx, "view url: ",
+	logger.Info(ctx, "start hls")
+	logger.Info(ctx, "view url: ",
 		fmt.Sprintf("http://localhost:8044/m3u8player.html?streamid=%s", source.StreamID()))
 
 	sub := h.hub.Subscribe(source.StreamID())
@@ -85,7 +85,7 @@ func (h *HLS) Start(ctx context.Context, source hub.Source) error {
 					h.mpeg4AudioConfigBytes = audioTranscodingProcess.ExtraData()
 					tmpAudioCodec, err := aacparser.NewCodecDataFromMPEG4AudioConfigBytes(h.mpeg4AudioConfigBytes)
 					if err != nil {
-						log.Error(ctx, err)
+						logger.Error(ctx, err)
 					}
 					h.mpeg4AudioConfig = &tmpAudioCodec.Config
 				}
@@ -99,7 +99,7 @@ func (h *HLS) Start(ctx context.Context, source hub.Source) error {
 				h.onVideo(ctx, data.H264Video)
 			}
 		}
-		log.Info(ctx, "[HLS] end of streamID: ", source.StreamID())
+		logger.Info(ctx, "[HLS] end of streamID: ", source.StreamID())
 	}()
 	return nil
 }
@@ -109,12 +109,12 @@ func (h *HLS) onAudio(ctx context.Context, source hub.Source, aacAudio *hub.AACA
 		if h.muxer == nil {
 			muxer, err := h.makeMuxer(aacAudio.MPEG4AudioConfigBytes)
 			if err != nil {
-				log.Error(ctx, err)
+				logger.Error(ctx, err)
 			}
 			h.hlsHub.StoreMuxer(source.StreamID(), "pass", muxer)
 			err = muxer.Start()
 			if err != nil {
-				log.Error(ctx, err)
+				logger.Error(ctx, err)
 			}
 			h.muxer = muxer
 		}
@@ -131,7 +131,7 @@ func (h *HLS) onVideo(ctx context.Context, h264Video *hub.H264Video) {
 		au, _ := h264parser.SplitNALUs(h264Video.Data)
 		err := h.muxer.WriteH264(time.Now(), time.Duration(h264Video.RawDTS())*time.Millisecond, au)
 		if err != nil {
-			log.Errorf(ctx, "failed to write h264: %v", err)
+			logger.Errorf(ctx, "failed to write h264: %v", err)
 		}
 	}
 }

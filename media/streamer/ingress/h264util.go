@@ -1,7 +1,7 @@
 package ingress
 
 import (
-	"liveflow/media/hub"
+	"live-streaming-server/media/hub"
 
 	"github.com/deepch/vdk/codec/h264parser"
 )

@@ -8,10 +8,9 @@ import "C"
 import (
 	"context"
 	"fmt"
+	"live-streaming-server/internal/logger"
 	"sync"
 	"time"
-
-	"liveflow/log"
 )
 
 var (
@@ -91,7 +90,7 @@ func NewHub() *Hub {
 }
 
 func (h *Hub) Notify(ctx context.Context, streamID Source) {
-	log.Info(ctx, "Notify", streamID.Name(), streamID.MediaSpecs())
+	logger.Info(ctx, "Notify", streamID.Name(), streamID.MediaSpecs())
 	h.notifyChan <- streamID
 }
 
@@ -111,7 +110,7 @@ func (h *Hub) Publish(streamID string, data *FrameData) {
 		select {
 		case ch <- data:
 		case <-ctx.Done():
-			log.Warn(ctx, "publish timeout")
+			logger.Warn(ctx, "publish timeout")
 		}
 	}
 }

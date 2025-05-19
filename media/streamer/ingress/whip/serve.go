@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"live-streaming-server/internal/logger"
 	"net/http"
 	"strings"
-
-	"liveflow/log"
 
 	"github.com/labstack/echo/v4"
 	"github.com/pion/interceptor"
@@ -15,7 +14,7 @@ import (
 	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
 
-	"liveflow/media/hub"
+	"live-streaming-server/media/hub"
 )
 
 var (
@@ -161,7 +160,7 @@ func (r *WHIP) whipHandler(c echo.Context) error {
 	})
 	peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		for _, t := range receiver.GetParameters().Codecs {
-			log.Info(ctx, "OnTrack", "Codec: ", t.MimeType)
+			logger.Info(ctx, "OnTrack", "Codec: ", t.MimeType)
 		}
 		whipHandler.OnTrack(track, receiver, trackArgCh)
 	})

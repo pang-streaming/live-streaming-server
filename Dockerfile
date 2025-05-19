@@ -16,4 +16,4 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     go build -o /app
 WORKDIR /app
 ENV GOGC=10
-ENTRYPOINT ["/app/liveflow"]
+ENTRYPOINT ["/app/live-streaming-server"]

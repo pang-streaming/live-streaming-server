@@ -5,20 +5,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"live-streaming-server/internal/logger"
 	"os"
 	"time"
 
-	"liveflow/media/streamer/egress/record"
-	"liveflow/media/streamer/processes"
+	"live-streaming-server/media/streamer/egress/record"
+	"live-streaming-server/media/streamer/processes"
 
 	astiav "github.com/asticode/go-astiav"
 	"github.com/deepch/vdk/codec/aacparser"
 	"github.com/sirupsen/logrus"
 	gomp4 "github.com/yapingcat/gomedia/go-mp4"
 
-	"liveflow/log"
-	"liveflow/media/hub"
-	"liveflow/media/streamer/fields"
+	"live-streaming-server/media/hub"
+	"live-streaming-server/media/streamer/fields"
 )
 
 var (
@@ -69,11 +69,11 @@ func (m *MP4) Start(ctx context.Context, source hub.Source) error {
 		return ErrUnsupportedCodec
 	}
 	m.streamID = source.StreamID()
-	ctx = log.WithFields(ctx, logrus.Fields{
+	ctx = logger.WithFields(ctx, logrus.Fields{
 		fields.StreamID:   source.StreamID(),
 		fields.SourceName: source.Name(),
 	})
-	log.Info(ctx, "start mp4")
+	logger.Info(ctx, "start mp4")
 	sub := m.hub.Subscribe(source.StreamID())
 	go func() {
 		var err error
@@ -82,7 +82,7 @@ func (m *MP4) Start(ctx context.Context, source hub.Source) error {
 		m.fileIndex = 0
 		err = m.createNewFile(ctx)
 		if err != nil {
-			log.Error(ctx, err, "failed to create mp4 file")
+			logger.Error(ctx, err, "failed to create mp4 file")
 			return
 		}
 		defer m.closeFile(ctx)
@@ -107,7 +107,7 @@ func (m *MP4) Start(ctx context.Context, source hub.Source) error {
 					m.mpeg4AudioConfigBytes = audioTranscodingProcess.ExtraData()
 					tmpAudioCodec, err := aacparser.NewCodecDataFromMPEG4AudioConfigBytes(m.mpeg4AudioConfigBytes)
 					if err != nil {
-						log.Error(ctx, err)
+						logger.Error(ctx, err)
 					}
 					m.mpeg4AudioConfig = &tmpAudioCodec.Config
 				}
@@ -120,9 +120,9 @@ func (m *MP4) Start(ctx context.Context, source hub.Source) error {
 		}
 		err = m.muxer.WriteTrailer()
 		if err != nil {
-			log.Error(ctx, err, "failed to write trailer")
+			logger.Error(ctx, err, "failed to write trailer")
 		}
-		log.Info(ctx, "mp4 file closed")
+		logger.Info(ctx, "mp4 file closed")
 	}()
 	return nil
 }
@@ -155,14 +155,14 @@ func (m *MP4) closeFile(ctx context.Context) {
 	if m.muxer != nil {
 		err := m.muxer.WriteTrailer()
 		if err != nil {
-			log.Error(ctx, err, "failed to write trailer")
+			logger.Error(ctx, err, "failed to write trailer")
 		}
 		m.muxer = nil
 	}
 	if m.tempFile != nil {
 		err := m.tempFile.Close()
 		if err != nil {
-			log.Error(ctx, err, "failed to close mp4 file")
+			logger.Error(ctx, err, "failed to close mp4 file")
 		}
 		m.tempFile = nil
 	}
@@ -190,7 +190,7 @@ func (m *MP4) onVideo(ctx context.Context, h264Video *hub.H264Video) {
 	if m.splitPending && isKeyFrame {
 		err := m.splitFile(ctx)
 		if err != nil {
-			log.Error(ctx, err, "failed to split mp4 file")
+			logger.Error(ctx, err, "failed to split mp4 file")
 			return
 		}
 		m.lastSplitTime = h264Video.RawDTS()
@@ -206,7 +206,7 @@ func (m *MP4) onVideo(ctx context.Context, h264Video *hub.H264Video) {
 	copy(videoData, h264Video.Data)
 	err := m.muxer.Write(m.videoIndex, videoData, uint64(h264Video.RawPTS()-m.lastSplitTime), uint64(h264Video.RawDTS()-m.lastSplitTime))
 	if err != nil {
-		log.Error(ctx, err, "failed to write video")
+		logger.Error(ctx, err, "failed to write video")
 	}
 }
 
@@ -232,7 +232,7 @@ func (m *MP4) onAudio(ctx context.Context, aacAudio *hub.AACAudio) {
 		audioData = append(adtsHeader, aacAudio.Data...)
 		err := m.muxer.Write(m.audioIndex, audioData, uint64(aacAudio.RawPTS()-m.lastSplitTime), uint64(aacAudio.RawDTS()-m.lastSplitTime))
 		if err != nil {
-			log.Error(ctx, err, "failed to write audio")
+			logger.Error(ctx, err, "failed to write audio")
 		}
 	}
 }

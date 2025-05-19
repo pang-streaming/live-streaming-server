@@ -8,10 +8,11 @@ import "C"
 import (
 	"context"
 	"errors"
+	"live-streaming-server/internal/logger"
 
 	"github.com/asticode/go-astiav"
 
-	"liveflow/media/streamer/processes"
+	"live-streaming-server/media/streamer/processes"
 
 	"github.com/deepch/vdk/codec/aacparser"
 	"github.com/pion/rtp"
@@ -19,9 +20,8 @@ import (
 	"github.com/pion/webrtc/v3"
 	"github.com/sirupsen/logrus"
 
-	"liveflow/log"
-	"liveflow/media/hub"
-	"liveflow/media/streamer/fields"
+	"live-streaming-server/media/hub"
+	"live-streaming-server/media/streamer/fields"
 )
 
 var (
@@ -70,11 +70,11 @@ func (w *WHEP) Start(ctx context.Context, source hub.Source) error {
 	if !hub.HasCodecType(source.MediaSpecs(), hub.CodecTypeH264) {
 		return ErrUnsupportedCodec
 	}
-	ctx = log.WithFields(ctx, logrus.Fields{
+	ctx = logger.WithFields(ctx, logrus.Fields{
 		fields.StreamID:   source.StreamID(),
 		fields.SourceName: source.Name(),
 	})
-	log.Info(ctx, "start whep")
+	logger.Info(ctx, "start whep")
 	sub := w.hub.Subscribe(source.StreamID())
 	go func() {
 		var audioTranscodingProcess *processes.AudioTranscodingProcess
@@ -82,7 +82,7 @@ func (w *WHEP) Start(ctx context.Context, source hub.Source) error {
 			if data.H264Video != nil {
 				err := w.onVideo(source, data.H264Video)
 				if err != nil {
-					log.Error(ctx, err, "failed to process video")
+					logger.Error(ctx, err, "failed to process video")
 				}
 			}
 			if data.AACAudio != nil {
@@ -93,13 +93,13 @@ func (w *WHEP) Start(ctx context.Context, source hub.Source) error {
 				w.addAudioTrack(ctx, source.StreamID())
 				err := w.onAACAudio(ctx, source, data.AACAudio, audioTranscodingProcess)
 				if err != nil {
-					log.Error(ctx, err, "failed to process AAC audio")
+					logger.Error(ctx, err, "failed to process AAC audio")
 				}
 			} else if data.OPUSAudio != nil {
 				w.addAudioTrack(ctx, source.StreamID())
 				err := w.onAudio(source, data.OPUSAudio)
 				if err != nil {
-					log.Error(ctx, err, "failed to process OPUS audio")
+					logger.Error(ctx, err, "failed to process OPUS audio")
 				}
 			}
 		}
@@ -107,7 +107,7 @@ func (w *WHEP) Start(ctx context.Context, source hub.Source) error {
 		if audioTranscodingProcess != nil {
 			audioTranscodingProcess.Close()
 		}
-		log.Info(ctx, "end whep")
+		logger.Info(ctx, "end whep")
 		//C.__lsan_do_leak_check()
 	}()
 
@@ -137,7 +137,7 @@ func (w *WHEP) addAudioTrack(ctx context.Context, streamID string) error {
 		var err error
 		w.audioTrack, err = webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus}, "audio", "pion")
 		if err != nil {
-			log.Error(ctx, err, "failed to create audio track")
+			logger.Error(ctx, err, "failed to create audio track")
 		}
 		w.tracks[streamID] = append(w.tracks[streamID], w.audioTrack)
 		ssrc := uint32(111)
@@ -182,11 +182,11 @@ func (w *WHEP) onAudio(source hub.Source, opusAudio *hub.OPUSAudio) error {
 
 func (w *WHEP) onAACAudio(ctx context.Context, source hub.Source, aac *hub.AACAudio, transcodingProcess *processes.AudioTranscodingProcess) error {
 	if len(aac.Data) == 0 {
-		log.Warn(ctx, "no data")
+		logger.Warn(ctx, "no data")
 		return nil
 	}
 	if aac.MPEG4AudioConfig == nil {
-		log.Warn(ctx, "no config")
+		logger.Warn(ctx, "no config")
 		return nil
 	}
 	const (

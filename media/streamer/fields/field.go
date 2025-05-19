@@ -1,6 +1,6 @@
 package fields
 
 const (
-	StreamID   = "liveflow_stream_id"
-	SourceName = "liveflow_source_name"
+	StreamID   = "live-streaming-server_stream_id"
+	SourceName = "live-streaming-server_source_name"
 )

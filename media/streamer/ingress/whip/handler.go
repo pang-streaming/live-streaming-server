@@ -4,19 +4,19 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"live-streaming-server/internal/logger"
 	"net/http"
 	"strings"
 	"time"
 
-	"liveflow/media/streamer/ingress"
+	"live-streaming-server/media/streamer/ingress"
 
 	"github.com/labstack/echo/v4"
 	"github.com/pion/rtp"
 	"github.com/pion/rtp/codecs"
 	"github.com/pion/webrtc/v3"
 
-	"liveflow/log"
-	"liveflow/media/hub"
+	"live-streaming-server/media/hub"
 )
 
 var (
@@ -116,20 +116,20 @@ func (w *WebRTCHandler) OnICEConnectionStateChange(connectionState webrtc.ICECon
 	ctx := context.Background()
 	switch connectionState {
 	case webrtc.ICEConnectionStateConnected:
-		log.Info(ctx, "ICE Connection State Connected")
+		logger.Info(ctx, "ICE Connection State Connected")
 		go func() {
 			err := w.WaitTrackArgs(ctx, 3*time.Second, trackArgCh)
 			if err != nil {
-				log.Error(ctx, err, "failed to wait track args")
+				logger.Error(ctx, err, "failed to wait track args")
 				return
 			}
 		}()
 	case webrtc.ICEConnectionStateDisconnected:
 		w.OnClose(ctx)
 		//delete(w.tracks, streamKey)
-		log.Info(ctx, "ICE Connection State Disconnected")
+		logger.Info(ctx, "ICE Connection State Disconnected")
 	case webrtc.ICEConnectionStateFailed:
-		log.Info(ctx, "ICE Connection State Failed")
+		logger.Info(ctx, "ICE Connection State Failed")
 		_ = w.pc.Close()
 	}
 }
@@ -157,7 +157,7 @@ func (w *WebRTCHandler) OnTrack(track *webrtc.TrackRemote, receiver *webrtc.RTPR
 	for {
 		pkt, _, err := track.ReadRTP()
 		if err != nil {
-			log.Error(ctx, err, "failed to read rtp")
+			logger.Error(ctx, err, "failed to read rtp")
 			break
 		}
 
@@ -188,7 +188,7 @@ func (w *WebRTCHandler) OnTrack(track *webrtc.TrackRemote, receiver *webrtc.RTPR
 		}
 		if len(videoPacketsQueue) > 0 || len(audioPacketsQueue) > 0 {
 			if !w.notifiedSource {
-				log.Warn(ctx, "not yet notified source")
+				logger.Warn(ctx, "not yet notified source")
 			}
 		}
 		if w.notifiedSource {
@@ -206,7 +206,7 @@ func (w *WebRTCHandler) OnTrack(track *webrtc.TrackRemote, receiver *webrtc.RTPR
 }
 func (w *WebRTCHandler) OnClose(ctx context.Context) error {
 	w.hub.Unpublish(w.streamID)
-	log.Info(ctx, "OnClose")
+	logger.Info(ctx, "OnClose")
 	return nil
 }
 
@@ -219,7 +219,7 @@ func (w *WebRTCHandler) onVideo(ctx context.Context, packets []*rtp.Packet) erro
 		}
 		b, err := h264RTPParser.Unmarshal(pkt.Payload)
 		if err != nil {
-			log.Error(ctx, err, "failed to unmarshal h264")
+			logger.Error(ctx, err, "failed to unmarshal h264")
 		}
 		payload = append(payload, b...)
 	}
@@ -255,7 +255,7 @@ func (w *WebRTCHandler) onAudio(ctx context.Context, clockRate uint32, packets [
 		}
 		b, err := opusRTPParser.Unmarshal(pkt.Payload)
 		if err != nil {
-			log.Error(ctx, err, "failed to unmarshal opus")
+			logger.Error(ctx, err, "failed to unmarshal opus")
 		}
 		payload = append(payload, b...)
 	}
@@ -283,7 +283,7 @@ func (r *WHIP) whepHandler(c echo.Context) error {
 	}
 	streamKey, err := r.bearerToken(c)
 	if err != nil {
-		log.Error(context.Background(), err, "failed to get stream key")
+		logger.Error(context.Background(), err, "failed to get stream key")
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 
@@ -291,7 +291,7 @@ func (r *WHIP) whepHandler(c echo.Context) error {
 	m := &webrtc.MediaEngine{}
 	err = registerCodec(m)
 	if err != nil {
-		log.Error(context.Background(), err, "failed to register codec")
+		logger.Error(context.Background(), err, "failed to register codec")
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 
@@ -304,7 +304,7 @@ func (r *WHIP) whepHandler(c echo.Context) error {
 	api := webrtc.NewAPI(webrtc.WithMediaEngine(m), webrtc.WithSettingEngine(se))
 	peerConnection, err := api.NewPeerConnection(peerConnectionConfiguration)
 	if err != nil {
-		log.Error(context.Background(), err, "failed to create peer connection")
+		logger.Error(context.Background(), err, "failed to create peer connection")
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 
@@ -313,7 +313,7 @@ func (r *WHIP) whepHandler(c echo.Context) error {
 	for _, track := range r.tracks[streamKey] {
 		sender, err := peerConnection.AddTrack(track)
 		if err != nil {
-			log.Error(context.Background(), err, "failed to add track")
+			logger.Error(context.Background(), err, "failed to add track")
 			return c.JSON(http.StatusInternalServerError, err.Error())
 		}
 		rtpSenders = append(rtpSenders, sender)

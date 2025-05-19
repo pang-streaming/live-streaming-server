@@ -4,10 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"live-streaming-server/internal/logger"
 
 	astiav "github.com/asticode/go-astiav"
-
-	"liveflow/log"
 )
 
 type MediaPacket struct {
@@ -114,12 +113,12 @@ func (t *AudioTranscodingProcess) Process(data *MediaPacket) ([]*MediaPacket, er
 	packet := astiav.AllocPacket()
 	defer packet.Free()
 	if err := packet.FromData(data.Data); err != nil {
-		log.Error(ctx, err, "failed to create packet")
+		logger.Error(ctx, err, "failed to create packet")
 	}
 	packet.SetPts(data.PTS)
 	packet.SetDts(data.DTS)
 	if err := t.decCodecContext.SendPacket(packet); err != nil {
-		log.Error(ctx, err, "failed to send packet")
+		logger.Error(ctx, err, "failed to send packet")
 	}
 
 	frameToSend := astiav.AllocFrame()
@@ -154,20 +153,20 @@ func (t *AudioTranscodingProcess) Process(data *MediaPacket) ([]*MediaPacket, er
 			frameToSend.SetSampleRate(t.encCodecContext.SampleRate())
 			frameToSend.SetPts(t.lastPts + int64(t.encCodecContext.FrameSize()))
 			if err := frameToSend.AllocBuffer(0); err != nil {
-				log.Error(ctx, err, "failed to alloc buffer")
+				logger.Error(ctx, err, "failed to alloc buffer")
 			}
 			t.lastPts = frameToSend.Pts()
 
 			read, err := t.audioFifo.Read(frameToSend)
 			if err != nil {
-				log.Error(ctx, err, "failed to read fifo")
+				logger.Error(ctx, err, "failed to read fifo")
 			}
 			if read < frameToSend.NbSamples() {
-				log.Error(ctx, err, "failed to read fifo")
+				logger.Error(ctx, err, "failed to read fifo")
 			}
 
 			if err := t.encCodecContext.SendFrame(frameToSend); err != nil {
-				log.Error(ctx, err, "failed to send frame")
+				logger.Error(ctx, err, "failed to send frame")
 			}
 
 			pkt := astiav.AllocPacket()

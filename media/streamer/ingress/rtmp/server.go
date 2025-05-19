@@ -3,13 +3,13 @@ package rtmp
 import (
 	"context"
 	"io"
+	"live-streaming-server/internal/logger"
 	"net"
 	"strconv"
 
 	"github.com/yutopp/go-rtmp"
 
-	"liveflow/log"
-	"liveflow/media/hub"
+	"live-streaming-server/media/hub"
 )
 
 const (
@@ -39,11 +39,11 @@ func NewRTMP(args RTMPArgs) *RTMP {
 func (r *RTMP) Serve(ctx context.Context) error {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", ":"+strconv.Itoa(r.port))
 	if err != nil {
-		log.Errorf(ctx, "Failed: %+v", err)
+		logger.Errorf(ctx, "Failed: %+v", err)
 	}
 	listener, err := net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
-		log.Errorf(ctx, "Failed: %+v", err)
+		logger.Errorf(ctx, "Failed: %+v", err)
 	}
 	srv := rtmp.NewServer(&rtmp.ServerConfig{
 		OnConnect: func(conn net.Conn) (io.ReadWriteCloser, *rtmp.ConnConfig) {
@@ -66,9 +66,9 @@ func (r *RTMP) Serve(ctx context.Context) error {
 			}
 		},
 	})
-	log.Info(ctx, "RTMP server started")
+	logger.Info(ctx, "RTMP server started")
 	if err := srv.Serve(listener); err != nil {
-		log.Errorf(ctx, "Failed: %+v", err)
+		logger.Errorf(ctx, "Failed: %+v", err)
 	}
 	return nil
 }

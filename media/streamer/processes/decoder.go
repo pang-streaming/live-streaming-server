@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"liveflow/log"
-	"liveflow/media/hub"
-	"liveflow/media/streamer/pipe"
+	"live-streaming-server/internal/logger"
+	"live-streaming-server/media/hub"
+	"live-streaming-server/media/streamer/pipe"
 
 	astiav "github.com/asticode/go-astiav"
 )
@@ -46,11 +46,11 @@ func (v *VideoDecodingProcess) Process(data hub.H264Video) ([]*astiav.Frame, err
 	//defer packet.Free()
 	err := packet.FromData(data.Data)
 	if err != nil {
-		log.Error(ctx, err, "failed to create packet")
+		logger.Error(ctx, err, "failed to create packet")
 	}
 	err = v.decCodecContext.SendPacket(packet)
 	if err != nil {
-		log.Error(ctx, err, "failed to send packet")
+		logger.Error(ctx, err, "failed to send packet")
 	}
 	var frames []*astiav.Frame
 	for {

@@ -1,8 +1,9 @@
-package httpsrv
+package handler
 
 import (
 	"context"
 	"fmt"
+	"live-streaming-server/internal/logger"
 	"net/http"
 	"path"
 	"path/filepath"
@@ -11,8 +12,7 @@ import (
 	"github.com/bluenviron/gohlslib/pkg/playlist"
 	"github.com/labstack/echo/v4"
 
-	"liveflow/log"
-	"liveflow/media/hlshub"
+	"live-streaming-server/media/hlshub"
 )
 
 const (
@@ -31,11 +31,11 @@ func NewHandler(hlsEndpoint *hlshub.HLSHub) *Handler {
 
 func (h *Handler) HandleMasterM3U8(c echo.Context) error {
 	ctx := context.Background()
-	log.Info(ctx, "HandleMasterM3U8")
+	logger.Info(ctx, "HandleMasterM3U8")
 	workID := c.Param("streamID")
 	muxers, err := h.endpoint.MuxersByWorkID(workID)
 	if err != nil {
-		log.Error(ctx, err, "get muxer failed")
+		logger.Error(ctx, err, "get muxer failed")
 		return fmt.Errorf("get muxer failed: %w", err)
 	}
 	m3u8Version := 3
@@ -83,15 +83,19 @@ func (h *Handler) HandleMasterM3U8(c echo.Context) error {
 
 func (h *Handler) HandleM3U8(c echo.Context) error {
 	ctx := context.Background()
-	log.Info(ctx, "HandleM3U8")
+	logger.Info(ctx, "HandleM3U8")
+
 	workID := c.Param("streamID")
 	playlistName := c.Param("playlistName")
 	muxer, err := h.endpoint.Muxer(workID, playlistName)
+
 	if err != nil {
-		log.Error(ctx, err, "no hls stream")
+		logger.Error(ctx, err, "no hls stream")
 		return c.NoContent(http.StatusNotFound)
 	}
+
 	extension := filepath.Ext(c.Request().URL.String())
+
 	switch extension {
 	case ".m3u8":
 		c.Response().Header().Set(cacheControl, "max-age=1")

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
-	"liveflow/media/streamer/pipe"
+	"live-streaming-server/media/streamer/pipe"
 	"os"
 
 	astiav "github.com/asticode/go-astiav"

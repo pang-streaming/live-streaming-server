@@ -1,4 +1,4 @@
-module liveflow
+module live-streaming-server
 
 go 1.21
 

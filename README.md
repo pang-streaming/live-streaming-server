@@ -1,6 +1,6 @@
-# **Liveflow**
+# **live-streaming-server**
 
-**Liveflow** is a flexible and modular live streaming solution designed for efficient real-time media stream handling. It supports a wide range of input and output formats, making it adaptable to various streaming needs.
+**live-streaming-server** is a flexible and modular live streaming solution designed for efficient real-time media stream handling. It supports a wide range of input and output formats, making it adaptable to various streaming needs.
 
 ## **Features**
 
@@ -34,7 +34,7 @@ The system architecture can be visualized as follows:
 
 ## **Requirements**
 
-- **FFmpeg:** Ensure FFmpeg is installed on your system as Liveflow relies on it for media processing.
+- **FFmpeg:** Ensure FFmpeg is installed on your system as live-streaming-server relies on it for media processing.
 
 ## **Installation**
 
@@ -45,15 +45,15 @@ The system architecture can be visualized as follows:
    ```
 2. Clone and build the repository:
    ```bash
-   git clone https://github.com/hsnks100/liveflow.git
-   cd liveflow
-   go build && ./liveflow 
+   git clone https://github.com/pang-streaming/live-streaming-server.git
+   cd live-streaming-server
+   go build && ./live-streaming-server 
    ```
 
 ### **Docker Compose**
-1. Run Liveflow using Docker Compose:
+1. Run live-streaming-server using Docker Compose:
    ```bash
-   docker-compose up liveflow -d --force-recreate --build
+   docker-compose up live-streaming-server -d --force-recreate --build
    ```
 
 ## **Usage**
@@ -83,7 +83,8 @@ Start streaming by choosing from the following broadcast options:
     - **Docker:** `~/.store`
     - **Local:** `$(repo)/videos`
 
-## **License**
+## **Original Repository**
 
-This project is licensed under the MIT License. For more details, see the [LICENSE](LICENSE) file.
+[hsnks100/liveflow](https://github.com/hsnks100/liveflow/)
+
 
