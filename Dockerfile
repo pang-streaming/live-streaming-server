@@ -15,5 +15,6 @@ RUN mkdir -p /app/bin/videos
 RUN --mount=type=cache,target=/root/.cache/go-build \
     go build -o /app
 WORKDIR /app
-ENV GOGC=10
+ENV GOGC=1000
+ENV GOMAXPROCS=0
 ENTRYPOINT ["/app/liveflow"]

@@ -1,12 +1,12 @@
 [service]
 port = 8044
+disk_ram = true
 llhls = true
 [rtmp]
 port = 1930
-disk_ram = true
 [docker]
 mode=false
 [mp4]
-record=true
+record=false
 [ebml]
 record=false
