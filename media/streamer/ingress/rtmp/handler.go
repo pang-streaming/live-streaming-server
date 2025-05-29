@@ -4,11 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"liveflow/media/streamer/ingress"
-	"os"
-	"path/filepath"
-
 	"github.com/deepch/vdk/codec/aacparser"
 	"github.com/deepch/vdk/codec/h264parser"
 	"github.com/pkg/errors"
@@ -16,6 +11,11 @@ import (
 	flvtag "github.com/yutopp/go-flv/tag"
 	"github.com/yutopp/go-rtmp"
 	rtmpmsg "github.com/yutopp/go-rtmp/message"
+	"io"
+	"liveflow/media/streamer/ingress"
+	"liveflow/redis"
+	"os"
+	"path/filepath"
 
 	"liveflow/log"
 	"liveflow/media/hub"
@@ -28,6 +28,8 @@ type Handler struct {
 	flvFile *os.File
 	flvEnc  *flv.Encoder
 
+	redisClient *redis.Client
+
 	width  int
 	height int
 	sps    []byte
@@ -39,6 +41,13 @@ type Handler struct {
 
 	MPEG4AudioConfigBytes []byte
 	MPEG4AudioConfig      *aacparser.MPEG4AudioConfig
+}
+
+func NewHandler(hub *hub.Hub, redisClient *redis.Client) *Handler {
+	return &Handler{
+		hub:         hub,
+		redisClient: redisClient,
+	}
 }
 
 func (h *Handler) Depth() int {
@@ -79,6 +88,29 @@ func (h *Handler) OnPublish(_ *rtmp.StreamContext, timestamp uint32, cmd *rtmpms
 		return errors.New("PublishingName is empty")
 	}
 
+	streamKey := cmd.PublishingName
+	streamerID := streamKey // 기본값으로 스트림 키를 스트리머 ID로 설정
+
+	// Redis가 활성화되어 있고 키 검증이 필요한 경우
+	if h.redisClient != nil && h.redisClient.IsEnabled() && h.redisClient.Config.Redis.KeyValidation {
+		// 스트림 키 검증
+		err := h.redisClient.ValidateStreamKey(ctx, streamKey)
+		if err != nil {
+			log.Warn(ctx, "Stream key validation failed:", err)
+			return errors.New("invalid stream key")
+		}
+
+		// 스트림 키로 스트리머 ID 조회
+		id, err := h.redisClient.GetStreamerIDByKey(ctx, streamKey)
+		if err == nil && id != "" {
+			// 스트리머 ID가 있으면 사용
+			streamerID = id
+			log.Info(ctx, "Using streamer ID from Redis:", streamerID)
+		} else {
+			log.Info(ctx, "Using stream key as streamer ID:", streamerID)
+		}
+	}
+
 	// Record streams as FLV!
 	p := filepath.Join(
 		os.TempDir(),
@@ -97,7 +129,7 @@ func (h *Handler) OnPublish(_ *rtmp.StreamContext, timestamp uint32, cmd *rtmpms
 	}
 	h.flvEnc = enc
 
-	h.streamID = cmd.PublishingName
+	h.streamID = streamerID
 	h.mediaSpecs = []hub.MediaSpec{
 		{
 			MediaType: hub.Video,

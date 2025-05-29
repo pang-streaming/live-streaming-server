@@ -3,6 +3,7 @@ package rtmp
 import (
 	"context"
 	"io"
+	"liveflow/redis"
 	"net"
 	"strconv"
 
@@ -20,19 +21,22 @@ type RTMP struct {
 	serverConfig *rtmp.ServerConfig
 	hub          *hub.Hub
 	port         int
+	RedisClient  *redis.Client
 }
 
 type RTMPArgs struct {
 	ServerConfig *rtmp.ServerConfig
 	Hub          *hub.Hub
 	Port         int
+	RedisClient  *redis.Client
 }
 
 func NewRTMP(args RTMPArgs) *RTMP {
 	return &RTMP{
 		//serverConfig: args.ServerConfig,
-		hub:  args.Hub,
-		port: args.Port,
+		hub:         args.Hub,
+		port:        args.Port,
+		RedisClient: args.RedisClient,
 	}
 }
 
@@ -44,12 +48,11 @@ func (r *RTMP) Serve(ctx context.Context) error {
 	listener, err := net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
 		log.Errorf(ctx, "Failed: %+v", err)
+		return err
 	}
 	srv := rtmp.NewServer(&rtmp.ServerConfig{
 		OnConnect: func(conn net.Conn) (io.ReadWriteCloser, *rtmp.ConnConfig) {
-			h := &Handler{
-				hub: r.hub,
-			}
+			h := NewHandler(r.hub, r.RedisClient)
 			return conn, &rtmp.ConnConfig{
 				Handler: h,
 				//ControlState: rtmp.StreamControlStateConfig{

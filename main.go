@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"liveflow/redis"
 	"net/http"
 	_ "net/http/pprof" // pprof을 사용하기 위한 패키지
 	"os"
@@ -75,6 +76,17 @@ func main() {
 	hub := hub.NewHub()
 	var tracks map[string][]*webrtc.TrackLocalStaticRTP
 	tracks = make(map[string][]*webrtc.TrackLocalStaticRTP)
+
+	redisClient, err := redis.NewClient(&conf)
+	if err != nil {
+		log.Errorf(ctx, "Failed to initialize Redis client: %v", err)
+	} else {
+		defer func(redisClient *redis.Client) {
+			_ = redisClient.Close()
+		}(redisClient)
+		log.Info(ctx, "Redis client initialized successfully")
+	}
+
 	// ingress
 	// Egress 서비스는 streamID 알림을 구독하여 처리 시작
 	go func() {
@@ -154,5 +166,6 @@ func main() {
 		Hub:  hub,
 		Port: conf.RTMP.Port,
 	})
+	rtmpServer.RedisClient = redisClient
 	rtmpServer.Serve(ctx)
 }
