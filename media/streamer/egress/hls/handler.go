@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"liveflow/media/streamer/processes"
+	"strings"
 	"time"
 
 	"github.com/asticode/go-astiav"
@@ -129,9 +130,22 @@ func (h *HLS) onAudio(ctx context.Context, source hub.Source, aacAudio *hub.AACA
 func (h *HLS) onVideo(ctx context.Context, h264Video *hub.H264Video) {
 	if h.muxer != nil {
 		au, _ := h264parser.SplitNALUs(h264Video.Data)
-		err := h.muxer.WriteH264(time.Now(), time.Duration(h264Video.RawDTS())*time.Millisecond, au)
+		mediaTime := time.Duration(h264Video.RawDTS()) * time.Millisecond
+		err := h.muxer.WriteH264(time.Now(), mediaTime, au)
 		if err != nil {
-			log.Errorf(ctx, "failed to write h264: %v", err)
+			if strings.Contains(err.Error(), "unable to extract DTS: too many reordered frames") {
+				// DTS 추출 실패 시 PTS 값을 DTS로 사용하여 재시도
+				log.Warnf(ctx, "DTS 추출 실패, PTS 값을 DTS로 사용하여 재시도: %v", err)
+				ptsDuration := time.Duration(h264Video.RawPTS()) * time.Millisecond
+				err = h.muxer.WriteH264(time.Now(), ptsDuration, au)
+				if err != nil {
+					log.Errorf(ctx, "PTS를 DTS로 사용해도 실패: %v", err)
+					return
+				}
+			} else {
+				log.Errorf(ctx, "failed to write h264: %v", err)
+				return
+			}
 		}
 	}
 }
@@ -173,6 +187,7 @@ func (h *HLS) makeMuxer(extraData []byte) (*gohlslib.Muxer, error) {
 	if h.diskRam {
 		directory = "/tmp"
 	}
+
 	muxer := &gohlslib.Muxer{
 		VideoTrack: &gohlslib.Track{
 			Codec: &codecs.H264{},
@@ -183,9 +198,13 @@ func (h *HLS) makeMuxer(extraData []byte) (*gohlslib.Muxer, error) {
 
 	if h.llHLS {
 		muxer.Variant = gohlslib.MuxerVariantLowLatency
-		muxer.PartDuration = 500 * time.Millisecond
+		// LLHLS는 최소 7개의 세그먼트가 필요
+		muxer.SegmentCount = 8 // 최소 7개 이상으로 설정
+		muxer.PartDuration = 200 * time.Millisecond
+		muxer.SegmentDuration = 1 * time.Second
 	} else {
 		muxer.Variant = gohlslib.MuxerVariantMPEGTS
+		muxer.SegmentCount = 6
 		muxer.SegmentDuration = 1 * time.Second
 	}
 	return muxer, nil
