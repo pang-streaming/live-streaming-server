@@ -7,6 +7,7 @@ type Config struct {
 	Docker  DockerConfig `mapstructure:"docker"`
 	MP4     MP4          `mapstructure:"mp4"`
 	EBML    EBML         `mapstructure:"ebml"`
+	S3      S3           `mapstructure:"s3"`
 }
 
 type RTMP struct {
@@ -29,4 +30,11 @@ type MP4 struct {
 
 type EBML struct {
 	Record bool `mapstructure:"record"`
+}
+
+type S3 struct {
+	Access       string `mapstructure:"access"`
+	Secret       string `mapstructure:"secret"`
+	Region       string `mapstructure:"region"`
+	CacheControl string `mapstructure:"cache_control"`
 }

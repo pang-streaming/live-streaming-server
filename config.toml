@@ -10,3 +10,8 @@ mode=false
 record=false
 [ebml]
 record=false
+[s3]
+access=""
+secret=""
+region="ap-northeast-2"
+cache_control="CDN-Cache-Control"

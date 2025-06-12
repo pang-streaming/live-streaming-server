@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"liveflow/config"
 	"net/http"
 	"net/http/httptest"
 	"path"
@@ -21,23 +22,17 @@ import (
 	"liveflow/media/hlshub"
 )
 
-const (
-	cacheControl = "CDN-Cache-Control"
-	// 임시 테스트용
-	AWS_ACCESS_KEY = ""
-	AWS_SECRET_KEY = ""
-	AWS_REGION     = "ap-northeast-2"
-)
-
 type Handler struct {
 	endpoint *hlshub.HLSHub
 	s3Client *s3.Client
+	config   config.Config
 }
 
-func NewHandler(hlsEndpoint *hlshub.HLSHub) *Handler {
+func NewHandler(hlsEndpoint *hlshub.HLSHub, conf config.Config) *Handler {
 	return &Handler{
 		endpoint: hlsEndpoint,
-		s3Client: s3.NewFromConfig(getAWSConfig()),
+		s3Client: s3.NewFromConfig(getAWSConfig(conf)),
+		config:   conf,
 	}
 }
 
@@ -59,22 +54,12 @@ func (h *Handler) HandleMasterM3U8(c echo.Context) error {
 	}
 	var variants []*playlist.MultivariantVariant
 	for name, muxer := range muxers {
-		// TODO: muxer.Bandwidth() is not implemented
-		//_, average, err := muxer.Bandwidth()
-		//if err != nil {
-		//	continue
-		//}
 		average := 33033
 		variant := &playlist.MultivariantVariant{
 			Bandwidth: average,
 			FrameRate: nil,
 			URI:       path.Join(name, "stream.m3u8"),
 		}
-		// TODO: muxer.ResolutionString() is not implemented
-		//resolution, err := muxer.ResolutionString()
-		//if err == nil {
-		//	variant.Resolution = resolution
-		//}
 		variant.Codecs = []string{}
 		if muxer.VideoTrack != nil {
 			variant.Codecs = append(variant.Codecs, codecparams.Marshal(muxer.VideoTrack.Codec))
@@ -85,33 +70,22 @@ func (h *Handler) HandleMasterM3U8(c echo.Context) error {
 		variants = append(variants, variant)
 	}
 	pl.Variants = variants
-	c.Response().Header().Set(cacheControl, "max-age=1")
+	c.Response().Header().Set(h.config.S3.CacheControl, "max-age=1")
 	masterM3u8Bytes, err := pl.Marshal()
 	if err != nil {
 		return err
 	}
 
-	// 임시 테스트용
 	tmpDir := filepath.Join("hls/", workID)
 	masterFilePath := filepath.Join(tmpDir, "master.m3u8")
+
+	log.Info(ctx, "master.m3u8 saved to tmp:", h.config.S3.Access)
+
 	_, err = h.s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String("pang-streaming-dev-bucket"),
 		Key:    aws.String(masterFilePath),
 		Body:   bytes.NewReader(masterM3u8Bytes),
 	})
-
-	//if err := os.MkdirAll(tmpDir, 0755); err != nil {
-	//	log.Error(ctx, err, "failed to create tmp directory")
-	//} else {
-	//	masterFilePath := filepath.Join(tmpDir, "master.m3u8")
-	//	err = os.WriteFile(masterFilePath, masterM3u8Bytes, 0644)
-	//	if err != nil {
-	//		log.Error(ctx, err, "failed to write master.m3u8")
-	//	} else {
-	//		log.Info(ctx, "master.m3u8 saved to tmp:", masterFilePath)
-	//	}
-	//
-	//}
 
 	return c.Blob(http.StatusOK, "application/vnd.apple.mpegurl", masterM3u8Bytes)
 }
@@ -139,42 +113,28 @@ func (h *Handler) HandleM3U8(c echo.Context) error {
 		Body:   bytes.NewReader(data),
 	})
 
-	//if err := os.MkdirAll(tmpDir, 0755); err != nil {
-	//	log.Error(ctx, err, "failed to create tmp directory")
-	//} else {
-	//	fileName := filepath.Base(c.Request().URL.Path)
-	//	filePath := filepath.Join(tmpDir, fileName)
-	//	if err := os.WriteFile(filePath, data, 0644); err != nil {
-	//		log.Error(ctx, err, "failed to write file", filePath)
-	//	} else {
-	//		log.Info(ctx, "file saved to tmp:", filePath)
-	//	}
-	//}
-
 	extension := filepath.Ext(c.Request().URL.String())
 	switch extension {
 	case ".m3u8":
-		c.Response().Header().Set(cacheControl, "max-age=1")
+		c.Response().Header().Set(h.config.S3.CacheControl, "max-age=1")
 	case ".ts", ".mp4":
-		c.Response().Header().Set(cacheControl, "max-age=3600")
+		c.Response().Header().Set(h.config.S3.CacheControl, "max-age=3600")
 	}
 	muxer.Handle(c.Response(), c.Request())
 	return nil
 }
 
-// 임시 테스트용
-func getAppCredentials() aws.CredentialsProvider {
+func getAppCredentials(conf config.Config) aws.CredentialsProvider {
 	return credentials.NewStaticCredentialsProvider(
-		AWS_ACCESS_KEY,
-		AWS_SECRET_KEY,
+		conf.S3.Access,
+		conf.S3.Secret,
 		"",
 	)
 }
 
-// AWS Config를 반환하는 함수
-func getAWSConfig() aws.Config {
+func getAWSConfig(config config.Config) aws.Config {
 	return aws.Config{
-		Credentials: getAppCredentials(),
-		Region:      AWS_REGION,
+		Credentials: getAppCredentials(config),
+		Region:      config.S3.Region,
 	}
 }

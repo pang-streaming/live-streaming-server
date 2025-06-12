@@ -81,7 +81,7 @@ func main() {
 		api := echo.New()
 		api.HideBanner = true
 		hlsHub := hlshub.NewHLSHub()
-		hlsHandler := httpsrv.NewHandler(hlsHub)
+		hlsHandler := httpsrv.NewHandler(hlsHub, conf)
 		hlsRoute := api.Group("/hls", middleware.CORSWithConfig(middleware.CORSConfig{
 			AllowOrigins: []string{"*"}, // Adjust origins as necessary
 			AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodOptions},
