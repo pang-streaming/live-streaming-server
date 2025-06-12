@@ -181,12 +181,16 @@ func (h *HLS) makeMuxer(extraData []byte) (*gohlslib.Muxer, error) {
 		Directory:  directory,
 	}
 
-	if h.llHLS {
-		muxer.Variant = gohlslib.MuxerVariantLowLatency
-		muxer.PartDuration = 500 * time.Millisecond
-	} else {
-		muxer.Variant = gohlslib.MuxerVariantMPEGTS
-		muxer.SegmentDuration = 1 * time.Second
-	}
+	muxer.Variant = gohlslib.MuxerVariantMPEGTS
+	//muxer.SegmentDuration = 1 * time.Second
+	
+	//if h.llHLS {
+	//	muxer.Variant = gohlslib.MuxerVariantLowLatency
+	//	muxer.PartDuration = 500 * time.Millisecond
+	//} else {
+	//	muxer.Variant = gohlslib.MuxerVariantMPEGTS
+	//	muxer.SegmentDuration = 1 * time.Second
+	//}
+
 	return muxer, nil
 }
